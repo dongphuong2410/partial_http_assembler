@@ -5,76 +5,75 @@
 #include <zmq.h>
 #include <pthread.h>
 #include <signal.h>
+#include "mfile.h"
 
 typedef struct {
     char *zmq_url;
 } config_t;
 
-config_t *parse_arg(int argc, char **argv);
+void parse_arg(int argc, char **argv, config_t *cfg);
 void usage(void);
 int init_socket(const char *url);
 void *recv_thread(void *param);
 void sigHandler(int dummy);
-void clean(void);
+void clean_config(config_t *cfg);
+void clean_zmq(void);
 
 void *context;
 void *socket;
-config_t *cfg;
 int running = 1;
 
 int main(int argc, char **argv)
 {
     signal(SIGINT, sigHandler);
 
-    cfg = parse_arg(argc, argv);
-    int rc;
+    config_t *cfg = (config_t *)malloc(sizeof(config_t));
+    parse_arg(argc, argv, cfg);
+    if (!cfg->zmq_url) {
+        usage();
+        goto exit;
+    }
 
+    int rc;
     rc = init_socket(cfg->zmq_url);
     if (rc) {
         fprintf(stderr, "Cannot open socket to %s!\n", cfg->zmq_url);
-        exit(1);
+        fprintf(stderr, "%d", rc);
+        goto exit;;
     }
 
     pthread_t thread;
     rc = pthread_create(&thread, NULL, recv_thread, NULL);
     if (rc) {
         fprintf(stderr, "Start thread error !\n");
-        exit(1);
+        goto exit;;
     }
     pthread_join(thread, NULL);
 
-    clean();
+exit:
+    clean_config(cfg);
+    clean_zmq();
     return 0;
 }
 
-config_t *parse_arg(int argc, char **argv)
+void parse_arg(int argc, char **argv, config_t *cfg)
 {
     static struct option long_options[] = {
         {"zmq-url", required_argument, 0, 'z'},
         {"help", no_argument, 0, 'h'},
         {0,0,0,0}
     };
-    char *zmq_url = NULL;
     int c;
     int option_index = 0;
     while ((c = getopt_long(argc, argv, "z:h", long_options, &option_index)) != -1) {
         switch (c) {
             case 'z':
-               zmq_url = strdup(optarg);
+                cfg->zmq_url = strdup(optarg);
                 break;
             case 'h':
                 usage();
                 exit(0);
         }
-    }
-    if (zmq_url) {
-        config_t *cfg = (config_t *)malloc(sizeof(config_t));
-        cfg->zmq_url = zmq_url;
-        return cfg;
-    }
-    else {
-        usage();
-        exit(0);
     }
 }
 
@@ -101,8 +100,32 @@ int init_socket(const char *url)
 
 void *recv_thread(void *param)
 {
+    int rc;
+    zmq_msg_t msg;
+    char *buffer;
+    partial_data_t partial_data;
+    zmq_msg_init_data(&msg, &partial_data, sizeof(partial_data), NULL, NULL);
+    int num = 0;
     while (running) {
-        sleep(1);
+        int size = zmq_msg_recv(&msg, socket, ZMQ_DONTWAIT);
+        if (size != -1) {
+            buffer = zmq_msg_data(&msg);
+            memcpy(&partial_data, buffer, sizeof(partial_data));
+            zmq_send(socket, &num, sizeof(int), 0);
+#ifdef TESTMODE
+            printf("zmq_msg_recv: %d\n", size);
+            printf("URL : %s\n", partial_data.url);
+            printf("Host: %s\n", partial_data.host);
+            printf("filepath: %s\n", partial_data.filepath);
+            printf("filesize: %lu\n", partial_data.filesize);
+            printf("range: %s\n", partial_data.range);
+            printf("content_type: %s\n", partial_data.content_type);
+            fflush(stdout);
+#endif
+        }
+        else {
+            sleep(1);
+        }
     }
     return NULL;
 }
@@ -112,10 +135,14 @@ void sigHandler(int dummy)
     running = 0;
 }
 
-void clean(void)
+void clean_config(config_t *cfg)
 {
-    free(cfg->zmq_url);
+    if (cfg->zmq_url) free(cfg->zmq_url);
     free(cfg);
-    zmq_close(socket);
-    zmq_ctx_destroy(context);
+}
+
+void clean_zmq(void)
+{
+    if (socket) zmq_close(socket);
+    if (context) zmq_ctx_destroy(context);
 }

@@ -1,11 +1,21 @@
 CC=gcc
-CFLAGS=-ggdb
+CFLAGS=
 LDFLAGS=-lzmq -lpthread
 
-all: mfile
+all: mfile msender
+
+test: CFLAGS += -DTESTMODE -ggdb
+test: all
+
+debug: CFLAGS += -ggdb
+debug: all
 
 mfile : mfile.c
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
+msender : msender.c
+	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+
 clean:
 	rm -rf mfile
+	rm -rf msender
