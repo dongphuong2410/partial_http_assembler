@@ -4,8 +4,8 @@ LDFLAGS=-lzmq -lpthread
 
 all: mfile msender
 
-test: CFLAGS += -DTESTMODE -ggdb
-test: all
+build_test: CFLAGS += -DTESTMODE -ggdb
+build_test: all
 
 debug: CFLAGS += -ggdb
 debug: all
@@ -19,3 +19,6 @@ msender : msender.c
 clean:
 	rm -rf mfile
 	rm -rf msender
+
+check: clean build_test
+	cd tests && ./test_zeromq

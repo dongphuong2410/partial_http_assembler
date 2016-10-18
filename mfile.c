@@ -18,6 +18,7 @@ void *recv_thread(void *param);
 void sigHandler(int dummy);
 void clean_config(config_t *cfg);
 void clean_zmq(void);
+void process_data(partial_data_t *data);
 
 void *context;
 void *socket;
@@ -122,6 +123,7 @@ void *recv_thread(void *param)
             printf("content_type: %s\n", partial_data.content_type);
             fflush(stdout);
 #endif
+            process_data(&partial_data);
         }
         else {
             sleep(1);
@@ -145,4 +147,8 @@ void clean_zmq(void)
 {
     if (socket) zmq_close(socket);
     if (context) zmq_ctx_destroy(context);
+}
+
+void process_data(partial_data_t *data)
+{
 }

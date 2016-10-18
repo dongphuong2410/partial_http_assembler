@@ -1,0 +1,25 @@
+#!/bin/bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'
+
+../mfile -z tcp://127.0.0.1:5555 &> tmp &
+../msender -z tcp://127.0.0.1:5555 -u "www.google.com" -o "128.28.0.12" -p "/etc/var/x.l" -e 123 -r "203-458/3433" -c "text/html"
+sleep 1s
+sudo pkill -2 mfile
+check_url=`cat tmp | grep www.google.com | wc -l`
+check_host=`cat tmp | grep 128.28.0.12 | wc -l`
+check_path=`cat tmp | grep /etc/var/x.l | wc -l`
+check_size=`cat tmp | grep 123 | wc -l`
+check_range=`cat tmp | grep 203-458/3433 | wc -l`
+check_content_type=`cat tmp | grep text/html | wc -l`
+
+if [ $check_url -eq 1 ] && [ $check_host -eq 1 ] && [ $check_path -eq 1 ] && [ $check_size -eq 1 ] && [ $check_range -eq 1 ] && [ $check_content_type -eq 1 ]; then
+    echo -e "${GREEN}PASS${NC}: test_zeromq";
+else
+    echo -e "${RED}FAIL${NC}: test_zeromq";
+fi
+rm -rf tmp
+
+

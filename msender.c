@@ -7,11 +7,10 @@
 
 typedef struct {
     char *zmq_url;
-    char *inputfile;
     char *url;
     char *host;
     char *filepath;
-    char *filesize;
+    size_t filesize;
     char *range;
     char *content_type;
 } config_t;
@@ -45,12 +44,17 @@ int main(int argc, char **argv)
     int ret;
     zmq_msg_t msg;
     partial_data_t partial_data;
-    strcpy(partial_data.url, "www.google.com");
-    strcpy(partial_data.host, "www.google.com");
-    strcpy(partial_data.filepath, "/var/home/file.zip");
-    partial_data.filesize = 500;
-    strcpy(partial_data.range, "124/343");
-    strcpy(partial_data.content_type, "text/html");
+    if (cfg->url)
+        strcpy(partial_data.url, cfg->url);
+    if (cfg->host)
+        strcpy(partial_data.host, cfg->host);
+    if (cfg->filepath)
+        strcpy(partial_data.filepath, cfg->filepath);
+    partial_data.filesize = cfg->filesize;
+    if (cfg->range)
+        strcpy(partial_data.range, cfg->range);
+    if (cfg->content_type)
+        strcpy(partial_data.content_type, cfg->content_type);
     zmq_msg_init_data(&msg, &partial_data, sizeof(partial_data), NULL, NULL);
     zmq_msg_send(&msg, socket, 0);
     zmq_recv(socket, &ret, sizeof(int), 0);
@@ -77,13 +81,10 @@ void parse_arg(int argc, char **argv, config_t *cfg)
     };
     int c;
     int option_index = 0;
-    while ((c = getopt_long(argc, argv, "z:f:u:h:p:e:r:c:h", long_options, &option_index)) != -1) {
+    while ((c = getopt_long(argc, argv, "z:u:h:p:o:e:r:c:h", long_options, &option_index)) != -1) {
         switch (c) {
             case 'z':
                cfg->zmq_url = strdup(optarg);
-                break;
-            case 'f':
-               cfg->inputfile = strdup(optarg);
                 break;
             case 'u':
                cfg->url = strdup(optarg);
@@ -95,7 +96,7 @@ void parse_arg(int argc, char **argv, config_t *cfg)
                cfg->filepath = strdup(optarg);
                 break;
             case 'e':
-               cfg->filesize = strdup(optarg);
+               cfg->filesize = atoi(optarg);
                 break;
             case 'r':
                cfg->range = strdup(optarg);
@@ -143,11 +144,9 @@ int init_socket(const char *url)
 void clean_config(config_t *cfg)
 {
     if (cfg->zmq_url) free(cfg->zmq_url);
-    if (cfg->inputfile) free(cfg->inputfile);
     if (cfg->url) free(cfg->url);
     if (cfg->host) free(cfg->host);
     if (cfg->filepath) free(cfg->filepath);
-    if (cfg->filesize) free(cfg->filesize);
     if (cfg->range) free(cfg->range);
     if (cfg->content_type) free(cfg->content_type);
     free(cfg);
